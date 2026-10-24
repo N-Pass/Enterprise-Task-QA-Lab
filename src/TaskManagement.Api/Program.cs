@@ -1,3 +1,4 @@
+using TaskManagement.Api.ErrorHandling;
 using TaskManagement.Application.Services;
 using TaskManagement.Infrastructure;
 using TaskManagement.Infrastructure.Persistence;
@@ -12,6 +13,9 @@ var connectionString = builder.Configuration.GetConnectionString("TaskDb")
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddInfrastructure(connectionString, builder.Environment.ContentRootPath);
+
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -31,6 +35,9 @@ if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", defaultValue
 }
 
 // ---- HTTP pipeline ----
+
+// First in the pipeline so it catches exceptions from everything that follows.
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
