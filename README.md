@@ -4,13 +4,16 @@ A small, production-inspired task management application built with ASP.NET Core
 
 > **About this project.** This is a personal portfolio exercise, developed with AI-assisted development. Its goal is to demonstrate software engineering and QA automation practices: layered architecture, RESTful API design, persistence, validation, error handling, automated testing, documentation and CI. It has not been deployed to production.
 
-> **Status: work in progress.** The backend (domain, application, persistence and REST API) is implemented. The frontend, integration tests, Selenium tests, CI pipeline and QA documentation are next. See [Project status](#project-status).
+> **Status: work in progress.** The backend (domain, application, persistence and REST API) and the web frontend are implemented. Integration tests, Selenium tests, the CI pipeline and the QA documentation are next. See [Project status](#project-status).
+
+![Task list](docs/images/task-list.png)
 
 ## Contents
 
 - [Technology stack](#technology-stack)
 - [Architecture](#architecture)
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [REST API](#rest-api)
 - [Getting started](#getting-started)
 - [Database](#database)
@@ -26,7 +29,7 @@ A small, production-inspired task management application built with ASP.NET Core
 | Backend | C#, .NET 10 (LTS), ASP.NET Core Web API (controllers) |
 | Persistence | Entity Framework Core 10, SQLite, EF Core migrations |
 | API documentation | Built-in OpenAPI (`Microsoft.AspNetCore.OpenApi`) |
-| Frontend *(planned)* | HTML5, CSS3, vanilla JavaScript |
+| Frontend | HTML5, CSS3, vanilla JavaScript (ES modules, no framework or build step) |
 | Testing | NUnit; ASP.NET Core `WebApplicationFactory` *(planned)*; Selenium WebDriver *(planned)* |
 | DevOps | Git, GitHub, GitHub Actions *(planned)*, .NET CLI, NuGet |
 
@@ -50,7 +53,8 @@ flowchart LR
 | `src/TaskManagement.Domain` | `TaskItem` entity and its invariants (title rules, default status, timestamps). No framework code. |
 | `src/TaskManagement.Application` | `TaskService` use cases, request/response DTOs, the `ITaskRepository` contract and `NotFoundException`. |
 | `src/TaskManagement.Infrastructure` | `AppDbContext`, entity configuration, `TaskRepository`, migrations and development seed data. |
-| `src/TaskManagement.Api` | HTTP endpoints, global exception handling (ProblemDetails), dependency injection and OpenAPI. |
+| `src/TaskManagement.Api` | HTTP endpoints, global exception handling (ProblemDetails), dependency injection and OpenAPI. Also serves the frontend from `wwwroot`. |
+| `src/TaskManagement.Api/wwwroot` | Single-page frontend: `index.html`, `css/styles.css`, `js/api.js` (HTTP client) and `js/app.js` (UI logic). |
 | `tests/TaskManagement.UnitTests` | NUnit tests for the domain and the application service. |
 | `tests/TaskManagement.IntegrationTests` | API tests against an isolated database *(planned)*. |
 | `tests/TaskManagement.UITests` | Selenium browser tests using the Page Object Model *(planned)*. |
@@ -61,15 +65,28 @@ Key design decisions:
 - **Validation in two layers.** DataAnnotations on the DTOs reject malformed requests at the HTTP boundary, while the domain enforces the same rules as invariants regardless of the caller. Length limits are defined once, as constants on `TaskItem`.
 - **Deterministic time.** The domain receives the current UTC time as a parameter, and the application layer reads it from .NET's built-in `TimeProvider`, so timestamp behavior is tested without delays.
 - **Centralized error handling.** A single `IExceptionHandler` converts exceptions into [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) ProblemDetails responses. Unexpected errors return a generic 500 message; details are only logged on the server.
+- **Frontend served by the API.** The page and the API share one origin, so no CORS configuration is needed and a single process serves everything (which also simplifies browser tests). A framework was not needed for one screen with a few dialogs.
+- **XSS-safe rendering.** Tasks are rendered by cloning a `<template>` and assigning `textContent`; user input is never inserted as HTML.
 
 ## Features
 
-Implemented in the API:
+Available both in the web interface and through the REST API:
 
 - Create, list, view, edit and delete tasks.
 - Change a task's status (`ToDo`, `InProgress`, `Done`).
 - Set a priority (`Low`, `Medium`, `High`) and an optional assignee.
 - Filter tasks by status and/or priority.
+
+Web interface:
+
+- Responsive layout, from phones (320px) to desktop.
+- Create/edit form with client-side validation; errors are shown next to each field, and server-side validation errors are mapped to the same fields.
+- Task details dialog, with dates shown in the user's local time.
+- Status change directly from each task card; a failed change reverts to the saved status.
+- Delete confirmation dialog, with focus starting on "Cancel".
+- Success and error messages in a live region announced by screen readers.
+- Keyboard accessible: native `<dialog>` elements (focus trapped, `Escape` closes), visible focus indicator, skip link, labelled controls.
+- If a task was deleted elsewhere, actions on it show a clear message and the list refreshes.
 
 Business rules:
 
@@ -84,6 +101,14 @@ Business rules:
 | Status changes | Any transition is allowed; setting the current status again is a no-op. |
 | Unknown or malformed id | HTTP 404. |
 | Invalid request data | HTTP 400 with a ProblemDetails body listing the invalid fields. |
+
+## Screenshots
+
+| Form validation | Task details |
+|---|---|
+| ![Create form showing a "Title is required" error](docs/images/form-validation.png) | ![Task details dialog](docs/images/task-details.png) |
+
+<img src="docs/images/mobile.png" alt="Task list on a 390px-wide phone screen" width="300">
 
 ## REST API
 
@@ -175,7 +200,9 @@ dotnet build EnterpriseTaskQaLab.slnx
 dotnet run --project src/TaskManagement.Api --launch-profile http
 ```
 
-The API listens on `http://localhost:5062`. On first start it creates the SQLite database, applies migrations and (in Development) inserts three sample tasks.
+Open **http://localhost:5062/** in a browser to use the web interface. The REST API is under `http://localhost:5062/api/tasks`.
+
+On first start the application creates the SQLite database, applies migrations and (in Development) inserts three sample tasks.
 
 ## Database
 
@@ -217,8 +244,8 @@ dotnet test tests/TaskManagement.UnitTests           # unit tests only
 | 1. Planning | Scope, architecture, risks, plan | Done |
 | 2. Environment | .NET 10 solution and project structure | Done |
 | 3. Backend | Domain, application, persistence, REST API | Done; endpoints verified manually |
-| 4. Frontend | Responsive vanilla JS interface | Next |
-| 5. Testing | Integration and Selenium tests | Planned |
+| 4. Frontend | Responsive vanilla JS interface | Done; workflows verified manually in Chrome (automated Selenium tests come in phase 5) |
+| 5. Testing | Integration and Selenium tests | Next |
 | 6. CI/CD | GitHub Actions build and test pipeline | Planned (not configured yet) |
 | 7. Documentation | Requirements, test plan, test cases, traceability, screenshots | Planned |
 
@@ -229,6 +256,8 @@ dotnet test tests/TaskManagement.UnitTests           # unit tests only
 - No optimistic concurrency control: when two clients edit the same task, the last write wins.
 - SQLite does not enforce declared text lengths; the domain layer is the effective guard.
 - When a request body is malformed JSON, ASP.NET Core also reports `"request": ["The request field is required."]` next to the actual error.
+- The task list does not refresh automatically when another user changes data; it reloads after each action or filter change.
+- Success and error messages appear at the top of the page; when the page is scrolled down they are announced by screen readers but may be out of view.
 - The OpenAPI document is only exposed in the Development environment, and no interactive UI (such as Swagger UI) is included.
 - Migrations are applied at application startup, which is convenient for a demo; production systems usually apply them in the deployment pipeline instead.
 
