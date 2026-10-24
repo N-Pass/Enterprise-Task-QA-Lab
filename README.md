@@ -1,10 +1,12 @@
 # Enterprise Task Management & QA Automation Lab
 
+[![CI](https://github.com/N-Pass/Enterprise-Task-QA-Lab/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/N-Pass/Enterprise-Task-QA-Lab/actions/workflows/ci.yml)
+
 A small, production-inspired task management application built with ASP.NET Core, Entity Framework Core and SQLite, together with a layered automated test strategy (unit, integration and browser tests).
 
 > **About this project.** This is a personal portfolio exercise, developed with AI-assisted development. Its goal is to demonstrate software engineering and QA automation practices: layered architecture, RESTful API design, persistence, validation, error handling, automated testing, documentation and CI. It has not been deployed to production.
 
-> **Status: work in progress.** The backend, the web frontend and the three automated test suites (unit, integration and Selenium) are implemented. The CI pipeline and the QA documentation are next. See [Project status](#project-status).
+> **Status: work in progress.** The backend, the web frontend, the three automated test suites (unit, integration and Selenium) and the CI pipeline are implemented. The QA documentation (requirements, test plan, test cases and traceability) is next. See [Project status](#project-status).
 
 ![Task list](docs/images/task-list.png)
 
@@ -18,6 +20,7 @@ A small, production-inspired task management application built with ASP.NET Core
 - [Getting started](#getting-started)
 - [Database](#database)
 - [Running the tests](#running-the-tests)
+- [Continuous integration](#continuous-integration)
 - [Project status](#project-status)
 - [Known limitations](#known-limitations)
 - [Future improvements](#future-improvements)
@@ -31,7 +34,7 @@ A small, production-inspired task management application built with ASP.NET Core
 | API documentation | Built-in OpenAPI (`Microsoft.AspNetCore.OpenApi`) |
 | Frontend | HTML5, CSS3, vanilla JavaScript (ES modules, no framework or build step) |
 | Testing | NUnit; ASP.NET Core `WebApplicationFactory` with SQLite in-memory; Selenium WebDriver with headless Chrome |
-| DevOps | Git, GitHub, GitHub Actions *(planned)*, .NET CLI, NuGet |
+| DevOps | Git, GitHub, GitHub Actions, .NET CLI, NuGet |
 
 No third-party libraries are used beyond the Microsoft packages listed above; for example, mapping is written by hand and tests use hand-written fakes instead of a mocking library.
 
@@ -246,6 +249,22 @@ How the suites are isolated:
 - **UI test diagnostics:** when a UI test fails, a screenshot and the page HTML are saved under `ui-failures/` in the test output folder and attached to the test result.
 - **UI test options:** set `UI_TEST_HEADED=1` to watch the browser, or `UI_TEST_BASE_URL=http://localhost:5062/` to run the tests against an instance that is already running.
 
+## Continuous integration
+
+The [GitHub Actions workflow](.github/workflows/ci.yml) runs on every push and pull request to `main` (and can be started manually). It has two jobs on `ubuntu-latest`:
+
+| Job | Steps |
+|---|---|
+| **Build, unit and integration tests** | Restore → Release build → unit tests → integration tests → summarize results → upload TRX results |
+| **Selenium UI tests** | Runs only if the first job succeeds. Release build → UI tests in headless Chrome → summarize results → upload TRX results (and failure screenshots when a UI test fails) |
+
+- Any failing build or test step fails the job, and therefore the workflow.
+- [`summarize-tests.sh`](.github/scripts/summarize-tests.sh) reads the TRX counters, writes a results table to the job summary and **fails the job if a suite executed zero tests**, so the pipeline cannot be green without actually running tests.
+- The SDK version comes from `global.json`, the workflow has read-only permissions, every job has a timeout, and a newer push cancels the run still in progress.
+- The UI tests run in a separate job so that a browser-environment problem is easy to tell apart from an application failure.
+
+The first successful run on GitHub was on 2026-10-24 ([run 40096522425](https://github.com/N-Pass/Enterprise-Task-QA-Lab/actions/runs/40096522425)): 37 unit, 35 integration and 6 UI tests passed.
+
 ## Project status
 
 | Phase | Scope | Status |
@@ -255,8 +274,8 @@ How the suites are isolated:
 | 3. Backend | Domain, application, persistence, REST API | Done; endpoints verified manually |
 | 4. Frontend | Responsive vanilla JS interface | Done; workflows verified manually in Chrome (automated Selenium tests come in phase 5) |
 | 5. Testing | Integration and Selenium tests | Done; all 78 tests passing locally |
-| 6. CI/CD | GitHub Actions build and test pipeline | Next (not configured yet) |
-| 7. Documentation | Requirements, test plan, test cases, traceability, screenshots | Planned |
+| 6. CI/CD | GitHub Actions build and test pipeline | Done; all suites passing on GitHub Actions |
+| 7. Documentation | Requirements, test plan, test cases, traceability | Next |
 
 ## Known limitations
 
