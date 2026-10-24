@@ -25,6 +25,7 @@
     <section aria-labelledby="tasks-heading">
       <div class="toolbar">
         <h2 id="tasks-heading">Tasks</h2>
+        <button type="button" id="new-task-button" class="button button-primary" data-testid="new-task-button">New task</button>
       </div>
 
       <form id="filters" class="filters" data-testid="filters" aria-label="Filter tasks">
@@ -55,6 +56,56 @@
     </section>
   </main>
 
+  <!-- Create/edit form. Native <dialog> traps focus and closes with Escape. -->
+  <dialog id="task-dialog" class="dialog" data-testid="task-dialog" aria-labelledby="task-dialog-title">
+    <!-- novalidate: validation is done in JavaScript so messages are consistent and accessible. -->
+    <form id="task-form" class="task-form" data-testid="task-form" novalidate>
+      <h2 id="task-dialog-title" data-testid="task-dialog-title">New task</h2>
+
+      <p id="form-error" class="form-error" data-testid="form-error" role="alert" hidden></p>
+
+      <div class="field">
+        <label for="task-title">Title <span aria-hidden="true">*</span></label>
+        <input id="task-title" name="title" type="text" maxlength="120" required autocomplete="off"
+               aria-describedby="task-title-hint task-title-error" data-testid="input-title">
+        <p id="task-title-hint" class="field-hint">Required. Up to 120 characters.</p>
+        <p id="task-title-error" class="field-error" data-testid="error-title" hidden></p>
+      </div>
+
+      <div class="field">
+        <label for="task-description">Description</label>
+        <textarea id="task-description" name="description" rows="4" maxlength="1000"
+                  aria-describedby="task-description-hint task-description-error" data-testid="input-description"></textarea>
+        <p id="task-description-hint" class="field-hint">Optional. Up to 1,000 characters.</p>
+        <p id="task-description-error" class="field-error" data-testid="error-description" hidden></p>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="task-priority">Priority</label>
+          <select id="task-priority" name="priority" aria-describedby="task-priority-error" data-testid="input-priority">
+            <option value="Low">Low</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="High">High</option>
+          </select>
+          <p id="task-priority-error" class="field-error" data-testid="error-priority" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="task-assignee">Assigned to</label>
+          <input id="task-assignee" name="assignedTo" type="text" maxlength="100" autocomplete="name"
+                 aria-describedby="task-assignee-error" data-testid="input-assignee">
+          <p id="task-assignee-error" class="field-error" data-testid="error-assignedTo" hidden></p>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="button button-secondary" data-action="close-dialog" data-testid="cancel-button">Cancel</button>
+        <button type="submit" id="save-task-button" class="button button-primary" data-testid="save-button">Save task</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Cloned for each task. Values are set with textContent, never innerHTML, to prevent XSS. -->
   <template id="task-item-template">
     <li class="task-card" data-testid="task-item">
@@ -66,6 +117,9 @@
         <span class="status-pill" data-testid="task-status-label"></span>
         <span class="task-assignee" data-testid="task-assignee"></span>
       </p>
+      <div class="task-actions">
+        <button type="button" class="button button-secondary button-small" data-action="edit" data-testid="edit-button">Edit</button>
+      </div>
     </li>
   </template>
 </body>

@@ -180,6 +180,65 @@ textarea {
   min-height: 2.5rem;
 }
 
+.field-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.field-error,
+.form-error {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-error-text);
+}
+
+.form-error {
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-error-bg);
+  border-radius: var(--radius);
+}
+
+[aria-invalid="true"] {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+/* ---- Dialogs ---- */
+.dialog {
+  width: min(36rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: var(--space-6);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.25);
+  color: var(--color-text);
+}
+
+.dialog::backdrop {
+  background: rgba(16, 24, 40, 0.5);
+}
+
+.task-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-4);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
 /* ---- Filters ---- */
 .filters {
   display: flex;
@@ -260,6 +319,13 @@ textarea {
   gap: var(--space-2) var(--space-3);
   margin: var(--space-2) 0 0;
   color: var(--color-muted);
+}
+
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .empty-state {
