@@ -483,3 +483,8 @@ $RECYCLE.BIN/
 
 # Local Claude Code settings
 .claude/settings.local.json
+
+# SQLite database files (created at runtime)
+*.db
+*.db-shm
+*.db-wal
