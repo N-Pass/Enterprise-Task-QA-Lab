@@ -58,6 +58,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Serves the vanilla JS frontend from wwwroot; "/" resolves to index.html.
+// Same origin as the API, so no CORS configuration is needed.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthorization();
 
 app.MapControllers();
