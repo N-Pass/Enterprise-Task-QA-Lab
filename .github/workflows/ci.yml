@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: the pipeline only needs to read the repository.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the run that is still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CONFIGURATION: Release
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    name: Build, unit and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET (version from global.json)
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore EnterpriseTaskQaLab.slnx
+
+      - name: Build
+        run: dotnet build EnterpriseTaskQaLab.slnx --no-restore --configuration $CONFIGURATION
+
+      - name: Unit tests
+        run: >
+          dotnet test tests/TaskManagement.UnitTests
+          --no-build --configuration $CONFIGURATION
+          --logger "trx;LogFileName=unit-tests.trx"
+          --results-directory TestResults
+
+      - name: Integration tests
+        run: >
+          dotnet test tests/TaskManagement.IntegrationTests
+          --no-build --configuration $CONFIGURATION
+          --logger "trx;LogFileName=integration-tests.trx"
+          --results-directory TestResults
+
+      # Runs even when a test step failed, so the results can be inspected.
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-unit-integration
+          path: TestResults/*.trx
+          if-no-files-found: warn
+
+  ui-tests:
+    name: Selenium UI tests
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET (version from global.json)
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Show browser version
+        run: google-chrome --version
+
+      - name: Restore dependencies
+        run: dotnet restore EnterpriseTaskQaLab.slnx
+
+      # Builds the API too: the UI tests start it as a separate process.
+      - name: Build
+        run: dotnet build EnterpriseTaskQaLab.slnx --no-restore --configuration $CONFIGURATION
+
+      - name: UI tests (headless Chrome)
+        run: >
+          dotnet test tests/TaskManagement.UITests
+          --no-build --configuration $CONFIGURATION
+          --logger "trx;LogFileName=ui-tests.trx"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-ui
+          path: TestResults/*.trx
+          if-no-files-found: warn
+
+      # Screenshots and page HTML are only produced when a UI test fails.
+      - name: Upload UI failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-failure-screenshots
+          path: tests/TaskManagement.UITests/bin/${{ env.CONFIGURATION }}/net10.0/ui-failures/
+          if-no-files-found: ignore
