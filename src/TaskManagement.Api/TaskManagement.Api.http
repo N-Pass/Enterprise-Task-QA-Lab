@@ -1,6 +1,67 @@
-@TaskManagement.Api_HostAddress = http://localhost:5062
+# Manual API checks. Run the API with: dotnet run --project src/TaskManagement.Api --launch-profile http
+# In VS Code, use the REST Client extension; Visual Studio and Rider support .http files natively.
 
-GET {{TaskManagement.Api_HostAddress}}/weatherforecast/
+@host = http://localhost:5062
+# Paste an id returned by "Create a task" here before running the requests below it.
+@taskId = 00000000-0000-0000-0000-000000000000
+
+### List all tasks
+GET {{host}}/api/tasks
 Accept: application/json
 
-###
+### Filter by status and priority
+GET {{host}}/api/tasks?status=ToDo&priority=High
+Accept: application/json
+
+### Create a task (201 + Location header)
+POST {{host}}/api/tasks
+Content-Type: application/json
+
+{
+  "title": "Prepare sprint review",
+  "description": "Collect demo items and metrics.",
+  "priority": "High",
+  "assignedTo": "Jordan"
+}
+
+### Create with invalid data (400: missing title)
+POST {{host}}/api/tasks
+Content-Type: application/json
+
+{
+  "title": "",
+  "priority": "Urgent"
+}
+
+### Get task details
+GET {{host}}/api/tasks/{{taskId}}
+Accept: application/json
+
+### Update a task (full replacement of editable fields)
+PUT {{host}}/api/tasks/{{taskId}}
+Content-Type: application/json
+
+{
+  "title": "Prepare and rehearse sprint review",
+  "description": "Collect demo items, metrics and rehearse once.",
+  "priority": "Medium",
+  "assignedTo": "Jordan"
+}
+
+### Change status
+PATCH {{host}}/api/tasks/{{taskId}}/status
+Content-Type: application/json
+
+{
+  "status": "InProgress"
+}
+
+### Delete a task (204)
+DELETE {{host}}/api/tasks/{{taskId}}
+
+### Nonexistent task (404)
+GET {{host}}/api/tasks/11111111-1111-1111-1111-111111111111
+Accept: application/json
+
+### OpenAPI document (Development only)
+GET {{host}}/openapi/v1.json

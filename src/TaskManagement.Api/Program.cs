@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using TaskManagement.Api.ErrorHandling;
 using TaskManagement.Application.Services;
 using TaskManagement.Infrastructure;
@@ -17,7 +18,15 @@ builder.Services.AddInfrastructure(connectionString, builder.Environment.Content
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Enums travel as names ("InProgress"); numeric values are rejected.
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
+
+        // Malformed JSON returns a generic message instead of internal type names.
+        options.AllowInputFormatterExceptionMessages = false;
+    });
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
@@ -38,6 +47,9 @@ if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", defaultValue
 
 // First in the pipeline so it catches exceptions from everything that follows.
 app.UseExceptionHandler();
+
+// Gives empty error responses (e.g. 404 for an unmatched route) a ProblemDetails body.
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {
