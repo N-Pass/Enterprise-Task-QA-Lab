@@ -106,6 +106,43 @@
     </form>
   </dialog>
 
+  <!-- Task details (read-only). -->
+  <dialog id="details-dialog" class="dialog" data-testid="details-dialog" aria-labelledby="details-heading">
+    <h2 id="details-heading">Task details</h2>
+    <dl class="details-list">
+      <dt>Title</dt>
+      <dd data-testid="details-title"></dd>
+      <dt>Description</dt>
+      <dd data-testid="details-description"></dd>
+      <dt>Status</dt>
+      <dd data-testid="details-status"></dd>
+      <dt>Priority</dt>
+      <dd data-testid="details-priority"></dd>
+      <dt>Assigned to</dt>
+      <dd data-testid="details-assignee"></dd>
+      <dt>Created</dt>
+      <dd><time data-testid="details-created"></time></dd>
+      <dt>Last updated</dt>
+      <dd><time data-testid="details-updated"></time></dd>
+    </dl>
+    <p class="field-hint">Dates are shown in your local time.</p>
+    <div class="dialog-actions">
+      <button type="button" class="button button-secondary" data-action="close-dialog" data-testid="details-close-button">Close</button>
+      <button type="button" id="details-edit-button" class="button button-primary" data-testid="details-edit-button">Edit</button>
+    </div>
+  </dialog>
+
+  <!-- Delete confirmation. Focus starts on Cancel, the safe choice. -->
+  <dialog id="delete-dialog" class="dialog dialog-narrow" data-testid="delete-dialog"
+          aria-labelledby="delete-heading" aria-describedby="delete-description">
+    <h2 id="delete-heading">Delete task?</h2>
+    <p id="delete-description" data-testid="delete-description"></p>
+    <div class="dialog-actions">
+      <button type="button" class="button button-secondary" data-action="close-dialog" data-testid="delete-cancel-button" autofocus>Cancel</button>
+      <button type="button" id="confirm-delete-button" class="button button-danger" data-testid="confirm-delete-button">Delete</button>
+    </div>
+  </dialog>
+
   <!-- Cloned for each task. Values are set with textContent, never innerHTML, to prevent XSS. -->
   <template id="task-item-template">
     <li class="task-card" data-testid="task-item">
@@ -118,7 +155,14 @@
         <span class="task-assignee" data-testid="task-assignee"></span>
       </p>
       <div class="task-actions">
+        <select class="status-select" data-action="change-status" data-testid="status-select">
+          <option value="ToDo">To Do</option>
+          <option value="InProgress">In Progress</option>
+          <option value="Done">Done</option>
+        </select>
+        <button type="button" class="button button-secondary button-small" data-action="details" data-testid="details-button">Details</button>
         <button type="button" class="button button-secondary button-small" data-action="edit" data-testid="edit-button">Edit</button>
+        <button type="button" class="button button-danger button-small" data-action="delete" data-testid="delete-button">Delete</button>
       </div>
     </li>
   </template>

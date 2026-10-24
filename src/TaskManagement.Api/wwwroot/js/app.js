@@ -1,5 +1,5 @@
 // UI logic: renders tasks and reacts to user actions. All HTTP calls go through api.js.
-import { ApiError, createTask, getTask, listTasks, updateTask } from './api.js';
+import { ApiError, changeTaskStatus, createTask, deleteTask, getTask, listTasks, updateTask } from './api.js';
 
 const STATUS_LABELS = { ToDo: 'To Do', InProgress: 'In Progress', Done: 'Done' };
 
@@ -34,7 +34,14 @@ const elements = {
     priority: document.getElementById('task-priority-error'),
     assignedTo: document.getElementById('task-assignee-error'),
   },
+  detailsDialog: document.getElementById('details-dialog'),
+  detailsEditButton: document.getElementById('details-edit-button'),
+  deleteDialog: document.getElementById('delete-dialog'),
+  deleteDescription: document.getElementById('delete-description'),
+  confirmDeleteButton: document.getElementById('confirm-delete-button'),
 };
+
+const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 // ---- Messages ----
 
@@ -56,7 +63,13 @@ function hideMessage() {
   elements.message.textContent = '';
 }
 
+const isNotFound = (error) => error instanceof ApiError && error.status === 404;
+
 function errorText(error) {
+  if (isNotFound(error)) {
+    // The API's 404 detail contains the raw id, which means nothing to a user.
+    return 'This task no longer exists. It may have been deleted. The list has been refreshed.';
+  }
   return error instanceof ApiError ? error.message : 'An unexpected error occurred.';
 }
 
@@ -79,8 +92,14 @@ function renderTask(task) {
   item.querySelector('[data-testid="task-assignee"]').textContent =
     task.assignedTo ? `Assigned to ${task.assignedTo}` : 'Unassigned';
 
-  // Every card has an "Edit" button; the label tells screen reader users which task it acts on.
+  const statusSelect = item.querySelector('[data-action="change-status"]');
+  statusSelect.value = task.status;
+
+  // Every card repeats the same controls; labels tell screen reader users which task they act on.
+  statusSelect.setAttribute('aria-label', `Status of task: ${task.title}`);
+  item.querySelector('[data-action="details"]').setAttribute('aria-label', `Details of task: ${task.title}`);
   item.querySelector('[data-action="edit"]').setAttribute('aria-label', `Edit task: ${task.title}`);
+  item.querySelector('[data-action="delete"]').setAttribute('aria-label', `Delete task: ${task.title}`);
 
   return item;
 }
@@ -200,7 +219,7 @@ async function openEditForm(id) {
     openTaskForm(await getTask(id));
   } catch (error) {
     showMessage(`Could not open the task. ${errorText(error)}`, 'error');
-    if (error instanceof ApiError && error.status === 404) {
+    if (isNotFound(error)) {
       loadTasks();
     }
   }
@@ -233,14 +252,105 @@ async function handleTaskFormSubmit(event) {
       showFieldErrors(error.fieldErrors);
     }
     showFormError(errorText(error));
+    if (isNotFound(error)) {
+      await loadTasks();
+    }
   } finally {
     elements.saveButton.disabled = false;
+  }
+}
+
+// ---- Details ----
+
+let detailsTaskId = null;
+
+function setDate(element, isoValue) {
+  element.dateTime = isoValue;
+  element.textContent = dateFormat.format(new Date(isoValue));
+}
+
+async function openDetails(id) {
+  try {
+    const task = await getTask(id);
+    detailsTaskId = task.id;
+    const field = (name) => elements.detailsDialog.querySelector(`[data-testid="details-${name}"]`);
+    field('title').textContent = task.title;
+    field('description').textContent = task.description ?? 'No description';
+    field('status').textContent = STATUS_LABELS[task.status] ?? task.status;
+    field('priority').textContent = task.priority;
+    field('assignee').textContent = task.assignedTo ?? 'Unassigned';
+    setDate(field('created'), task.createdAtUtc);
+    setDate(field('updated'), task.updatedAtUtc);
+    elements.detailsDialog.showModal();
+  } catch (error) {
+    showMessage(`Could not load the task details. ${errorText(error)}`, 'error');
+    if (isNotFound(error)) {
+      loadTasks();
+    }
+  }
+}
+
+// ---- Status change ----
+
+async function handleStatusChange(select, taskId) {
+  const card = select.closest('[data-task-id]');
+  const title = card.querySelector('[data-testid="task-title"]').textContent;
+  const previousStatus = card.querySelector('[data-testid="task-status-label"]').dataset.status;
+
+  select.disabled = true;
+  try {
+    const updated = await changeTaskStatus(taskId, select.value);
+    showMessage(`Status of "${title}" changed to ${STATUS_LABELS[updated.status]}.`);
+    await loadTasks();
+  } catch (error) {
+    // Revert so the screen never shows a status that was not saved.
+    select.value = previousStatus;
+    showMessage(`Could not change the status. ${errorText(error)}`, 'error');
+    if (isNotFound(error)) {
+      await loadTasks();
+    }
+  } finally {
+    select.disabled = false;
+  }
+}
+
+// ---- Delete ----
+
+let pendingDelete = null;
+
+function openDeleteConfirmation(taskId, title) {
+  pendingDelete = { taskId, title };
+  elements.deleteDescription.textContent = `"${title}" will be permanently deleted. This cannot be undone.`;
+  elements.deleteDialog.showModal();
+}
+
+async function confirmDelete() {
+  if (!pendingDelete) return;
+  const { taskId, title } = pendingDelete;
+
+  elements.confirmDeleteButton.disabled = true;
+  try {
+    await deleteTask(taskId);
+    showMessage(`Task "${title}" was deleted.`);
+  } catch (error) {
+    showMessage(`Could not delete the task. ${errorText(error)}`, 'error');
+  } finally {
+    elements.confirmDeleteButton.disabled = false;
+    pendingDelete = null;
+    elements.deleteDialog.close();
+    // Reload in both cases: after a 404 the task is gone anyway.
+    await loadTasks();
   }
 }
 
 // ---- Event wiring ----
 
 elements.newTaskButton.addEventListener('click', () => openTaskForm());
+elements.confirmDeleteButton.addEventListener('click', confirmDelete);
+elements.detailsEditButton.addEventListener('click', () => {
+  elements.detailsDialog.close();
+  openEditForm(detailsTaskId);
+});
 elements.taskForm.addEventListener('submit', handleTaskFormSubmit);
 
 // Any element with data-action="close-dialog" closes the dialog that contains it.
@@ -255,8 +365,26 @@ elements.taskList.addEventListener('click', (event) => {
   const taskId = button?.closest('[data-task-id]')?.dataset.taskId;
   if (!taskId) return;
 
-  if (button.dataset.action === 'edit') {
-    openEditForm(taskId);
+  const title = button.closest('[data-task-id]').querySelector('[data-testid="task-title"]').textContent;
+
+  switch (button.dataset.action) {
+    case 'details':
+      openDetails(taskId);
+      break;
+    case 'edit':
+      openEditForm(taskId);
+      break;
+    case 'delete':
+      openDeleteConfirmation(taskId, title);
+      break;
+  }
+});
+
+elements.taskList.addEventListener('change', (event) => {
+  const select = event.target.closest('select[data-action="change-status"]');
+  const taskId = select?.closest('[data-task-id]')?.dataset.taskId;
+  if (taskId) {
+    handleStatusChange(select, taskId);
   }
 });
 
