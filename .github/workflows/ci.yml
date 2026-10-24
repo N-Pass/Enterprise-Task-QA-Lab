@@ -56,6 +56,11 @@ jobs:
           --logger "trx;LogFileName=integration-tests.trx"
           --results-directory TestResults
 
+      # Fails the job if a suite ran zero tests; also writes the counts to the job summary.
+      - name: Summarize test results
+        if: success() || failure()
+        run: bash .github/scripts/summarize-tests.sh TestResults
+
       # Runs even when a test step failed, so the results can be inspected.
       - name: Upload test results
         if: always()
@@ -96,6 +101,10 @@ jobs:
           --no-build --configuration $CONFIGURATION
           --logger "trx;LogFileName=ui-tests.trx"
           --results-directory TestResults
+
+      - name: Summarize test results
+        if: success() || failure()
+        run: bash .github/scripts/summarize-tests.sh TestResults
 
       - name: Upload test results
         if: always()
