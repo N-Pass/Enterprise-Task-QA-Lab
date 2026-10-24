@@ -4,7 +4,7 @@ A small, production-inspired task management application built with ASP.NET Core
 
 > **About this project.** This is a personal portfolio exercise, developed with AI-assisted development. Its goal is to demonstrate software engineering and QA automation practices: layered architecture, RESTful API design, persistence, validation, error handling, automated testing, documentation and CI. It has not been deployed to production.
 
-> **Status: work in progress.** The backend (domain, application, persistence and REST API) and the web frontend are implemented. Integration tests, Selenium tests, the CI pipeline and the QA documentation are next. See [Project status](#project-status).
+> **Status: work in progress.** The backend, the web frontend and the three automated test suites (unit, integration and Selenium) are implemented. The CI pipeline and the QA documentation are next. See [Project status](#project-status).
 
 ![Task list](docs/images/task-list.png)
 
@@ -30,7 +30,7 @@ A small, production-inspired task management application built with ASP.NET Core
 | Persistence | Entity Framework Core 10, SQLite, EF Core migrations |
 | API documentation | Built-in OpenAPI (`Microsoft.AspNetCore.OpenApi`) |
 | Frontend | HTML5, CSS3, vanilla JavaScript (ES modules, no framework or build step) |
-| Testing | NUnit; ASP.NET Core `WebApplicationFactory` *(planned)*; Selenium WebDriver *(planned)* |
+| Testing | NUnit; ASP.NET Core `WebApplicationFactory` with SQLite in-memory; Selenium WebDriver with headless Chrome |
 | DevOps | Git, GitHub, GitHub Actions *(planned)*, .NET CLI, NuGet |
 
 No third-party libraries are used beyond the Microsoft packages listed above; for example, mapping is written by hand and tests use hand-written fakes instead of a mocking library.
@@ -56,8 +56,8 @@ flowchart LR
 | `src/TaskManagement.Api` | HTTP endpoints, global exception handling (ProblemDetails), dependency injection and OpenAPI. Also serves the frontend from `wwwroot`. |
 | `src/TaskManagement.Api/wwwroot` | Single-page frontend: `index.html`, `css/styles.css`, `js/api.js` (HTTP client) and `js/app.js` (UI logic). |
 | `tests/TaskManagement.UnitTests` | NUnit tests for the domain and the application service. |
-| `tests/TaskManagement.IntegrationTests` | API tests against an isolated database *(planned)*. |
-| `tests/TaskManagement.UITests` | Selenium browser tests using the Page Object Model *(planned)*. |
+| `tests/TaskManagement.IntegrationTests` | HTTP tests against the real API hosted in memory, with an isolated database per test. |
+| `tests/TaskManagement.UITests` | Selenium browser tests (Page Object Model) against the API running as a separate process. |
 
 Key design decisions:
 
@@ -186,7 +186,7 @@ HTTP/1.1 400 Bad Request
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) — `global.json` requests 10.0.402 or a later feature band.
 - Git.
-- Google Chrome *(only needed later, for the Selenium tests)*.
+- Google Chrome *(only for the Selenium UI tests; the matching ChromeDriver is downloaded automatically by Selenium Manager)*.
 
 ### Build and run
 
@@ -227,15 +227,24 @@ dotnet build EnterpriseTaskQaLab.slnx    # rebuild before running the API
 ## Running the tests
 
 ```bash
-dotnet test EnterpriseTaskQaLab.slnx                 # all test projects
-dotnet test tests/TaskManagement.UnitTests           # unit tests only
+dotnet test EnterpriseTaskQaLab.slnx                    # all suites (builds everything first)
+dotnet test tests/TaskManagement.UnitTests              # unit tests
+dotnet test tests/TaskManagement.IntegrationTests       # API integration tests
+dotnet test tests/TaskManagement.UITests                # Selenium UI tests (needs Chrome)
 ```
 
-| Suite | Scope | Status |
+| Suite | What it covers | Result |
 |---|---|---|
-| Unit (NUnit) | Domain rules: required title, length limits, default status, status transitions, timestamp updates. Application service: create, read, update, status change, delete and not-found paths. | 37 tests, all passing locally (2026-10-24) |
-| Integration | HTTP endpoints against an isolated SQLite database | Not implemented yet |
-| UI (Selenium) | TC-UI-001 to TC-UI-005 in a real browser | Not implemented yet |
+| **Unit** (NUnit) | Domain rules: required title, length limits (including exact boundaries), default status, every status transition, timestamp updates, failed updates leaving the task unchanged. Application service: create, read, update, status change, delete and not-found paths, with hand-written fakes. | 37 tests, all passing locally (2026-10-24) |
+| **Integration** (`WebApplicationFactory`) | Every endpoint over HTTP against the real application: status codes (200/201/204/400/404/500), `Location` header, ProblemDetails bodies and content type, validation errors, filters and ordering, persistence, immutable id, UTC timestamps, and a generic 500 that leaks no exception details. Also checks that the frontend is served. | 35 tests, all passing locally (2026-10-24) |
+| **UI** (Selenium + Chrome) | TC-UI-001 create a task, TC-UI-002 reject an invalid form, TC-UI-003 update a task, TC-UI-004 change status, TC-UI-005 delete a task, TC-UI-006 filter by status and priority. | 6 tests, all passing locally in 4 consecutive runs (2026-10-24) |
+
+How the suites are isolated:
+
+- **Integration tests** create a new in-memory host for every test, with its own SQLite in-memory database. The real EF Core migrations are applied to it, so the schema is tested too. A controllable clock replaces `TimeProvider`, so timestamp assertions are exact.
+- **UI tests** start the compiled API once per run as a separate process, on a free port, with a temporary SQLite file that is deleted afterwards. The test project does not reference application code (black-box). Each test opens a fresh browser and creates its own data with unique titles, so tests can run alone or in any order.
+- **UI test diagnostics:** when a UI test fails, a screenshot and the page HTML are saved under `ui-failures/` in the test output folder and attached to the test result.
+- **UI test options:** set `UI_TEST_HEADED=1` to watch the browser, or `UI_TEST_BASE_URL=http://localhost:5062/` to run the tests against an instance that is already running.
 
 ## Project status
 
@@ -245,8 +254,8 @@ dotnet test tests/TaskManagement.UnitTests           # unit tests only
 | 2. Environment | .NET 10 solution and project structure | Done |
 | 3. Backend | Domain, application, persistence, REST API | Done; endpoints verified manually |
 | 4. Frontend | Responsive vanilla JS interface | Done; workflows verified manually in Chrome (automated Selenium tests come in phase 5) |
-| 5. Testing | Integration and Selenium tests | Next |
-| 6. CI/CD | GitHub Actions build and test pipeline | Planned (not configured yet) |
+| 5. Testing | Integration and Selenium tests | Done; all 78 tests passing locally |
+| 6. CI/CD | GitHub Actions build and test pipeline | Next (not configured yet) |
 | 7. Documentation | Requirements, test plan, test cases, traceability, screenshots | Planned |
 
 ## Known limitations
@@ -258,6 +267,7 @@ dotnet test tests/TaskManagement.UnitTests           # unit tests only
 - When a request body is malformed JSON, ASP.NET Core also reports `"request": ["The request field is required."]` next to the actual error.
 - The task list does not refresh automatically when another user changes data; it reloads after each action or filter change.
 - Success and error messages appear at the top of the page; when the page is scrolled down they are announced by screen readers but may be out of view.
+- The UI tests require Google Chrome and take about 20 seconds; they run against Chrome only.
 - The OpenAPI document is only exposed in the Development environment, and no interactive UI (such as Swagger UI) is included.
 - Migrations are applied at application startup, which is convenient for a demo; production systems usually apply them in the deployment pipeline instead.
 
