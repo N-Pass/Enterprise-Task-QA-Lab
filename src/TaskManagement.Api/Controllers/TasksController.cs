@@ -6,11 +6,16 @@ using TaskManagement.Domain.Enums;
 namespace TaskManagement.Api.Controllers;
 
 /// <summary>Manages tasks. Controllers only translate HTTP to service calls; rules live in the domain.</summary>
+// Content types are declared per response instead of with a class-level [Produces]:
+// [Produces("application/json")] would also force it onto error responses, which must be
+// "application/problem+json" (RFC 9457).
 [ApiController]
 [Route("api/tasks")]
-[Produces("application/json")]
 public sealed class TasksController : ControllerBase
 {
+    private const string Json = "application/json";
+    private const string ProblemJson = "application/problem+json";
+
     private readonly ITaskService _taskService;
 
     public TasksController(ITaskService taskService)
@@ -23,8 +28,8 @@ public sealed class TasksController : ControllerBase
     /// <param name="priority">Optional priority filter: Low, Medium or High.</param>
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     [HttpGet]
-    [ProducesResponseType<IReadOnlyList<TaskResponse>>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<IReadOnlyList<TaskResponse>>(StatusCodes.Status200OK, Json)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, ProblemJson)]
     public async Task<ActionResult<IReadOnlyList<TaskResponse>>> List(
         [FromQuery] TaskItemStatus? status,
         [FromQuery] TaskPriority? priority,
@@ -53,8 +58,8 @@ public sealed class TasksController : ControllerBase
     /// <param name="id">Task identifier (GUID).</param>
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     [HttpGet("{id:guid}")]
-    [ProducesResponseType<TaskResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<TaskResponse>(StatusCodes.Status200OK, Json)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, ProblemJson)]
     public async Task<ActionResult<TaskResponse>> GetById(Guid id, CancellationToken cancellationToken)
     {
         return Ok(await _taskService.GetByIdAsync(id, cancellationToken));
@@ -65,8 +70,8 @@ public sealed class TasksController : ControllerBase
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     [HttpPost]
     [Consumes("application/json")]
-    [ProducesResponseType<TaskResponse>(StatusCodes.Status201Created)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<TaskResponse>(StatusCodes.Status201Created, Json)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, ProblemJson)]
     public async Task<ActionResult<TaskResponse>> Create(CreateTaskRequest request, CancellationToken cancellationToken)
     {
         var created = await _taskService.CreateAsync(request, cancellationToken);
@@ -81,9 +86,9 @@ public sealed class TasksController : ControllerBase
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     [HttpPut("{id:guid}")]
     [Consumes("application/json")]
-    [ProducesResponseType<TaskResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<TaskResponse>(StatusCodes.Status200OK, Json)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, ProblemJson)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, ProblemJson)]
     public async Task<ActionResult<TaskResponse>> Update(Guid id, UpdateTaskRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _taskService.UpdateAsync(id, request, cancellationToken));
@@ -95,9 +100,9 @@ public sealed class TasksController : ControllerBase
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     [HttpPatch("{id:guid}/status")]
     [Consumes("application/json")]
-    [ProducesResponseType<TaskResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<TaskResponse>(StatusCodes.Status200OK, Json)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, ProblemJson)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, ProblemJson)]
     public async Task<ActionResult<TaskResponse>> ChangeStatus(Guid id, ChangeTaskStatusRequest request, CancellationToken cancellationToken)
     {
         return Ok(await _taskService.ChangeStatusAsync(id, request, cancellationToken));
@@ -108,7 +113,7 @@ public sealed class TasksController : ControllerBase
     /// <param name="cancellationToken">Cancelled when the client disconnects.</param>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound, ProblemJson)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         await _taskService.DeleteAsync(id, cancellationToken);
