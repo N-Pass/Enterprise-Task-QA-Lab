@@ -6,12 +6,13 @@ A small, production-inspired task management application built with ASP.NET Core
 
 > **About this project.** This is a personal portfolio exercise, developed with AI-assisted development. Its goal is to demonstrate software engineering and QA automation practices: layered architecture, RESTful API design, persistence, validation, error handling, automated testing, documentation and CI. It has not been deployed to production.
 
-> **Status: work in progress.** The backend, the web frontend, the three automated test suites (unit, integration and Selenium) and the CI pipeline are implemented. The QA documentation (requirements, test plan, test cases and traceability) is next. See [Project status](#project-status).
+> **Status: complete for its planned scope.** Backend, web frontend, unit/integration/Selenium test suites, CI pipeline and QA documentation are implemented. See [Project status](#project-status) and [Known limitations](#known-limitations).
 
 ![Task list](docs/images/task-list.png)
 
 ## Contents
 
+- [Documentation](#documentation)
 - [Technology stack](#technology-stack)
 - [Architecture](#architecture)
 - [Features](#features)
@@ -25,6 +26,15 @@ A small, production-inspired task management application built with ASP.NET Core
 - [Known limitations](#known-limitations)
 - [Future improvements](#future-improvements)
 
+## Documentation
+
+| Document | Contents |
+|---|---|
+| [Requirements](docs/requirements.md) | Concise SRS: functional requirements, business rules, non-functional requirements, assumptions and acceptance criteria |
+| [Architecture](docs/architecture.md) | Layers, request flow, design decisions and trade-offs, data model, error handling, testing architecture |
+| [Test plan](docs/test-plan.md) | Objectives, scope, test levels and techniques, environments, test data, entry/exit criteria, risks |
+| [Test cases](docs/test-cases.md) | Test cases with expected and actual results, execution summary, defects found, traceability matrix |
+
 ## Technology stack
 
 | Area | Technology |
@@ -36,7 +46,7 @@ A small, production-inspired task management application built with ASP.NET Core
 | Testing | NUnit; ASP.NET Core `WebApplicationFactory` with SQLite in-memory; Selenium WebDriver with headless Chrome |
 | DevOps | Git, GitHub, GitHub Actions, .NET CLI, NuGet |
 
-No third-party libraries are used beyond the Microsoft packages listed above; for example, mapping is written by hand and tests use hand-written fakes instead of a mocking library.
+The application itself depends only on Microsoft packages; the only third-party packages are the test frameworks (NUnit and Selenium). Dependencies were kept minimal on purpose: mapping is written by hand, and tests use hand-written fakes instead of a mocking library.
 
 ## Architecture
 
@@ -229,6 +239,8 @@ dotnet build EnterpriseTaskQaLab.slnx    # rebuild before running the API
 
 ## Running the tests
 
+The testing strategy follows the test pyramid: many fast unit tests for business rules, integration tests for the HTTP contract and persistence, and a small set of browser tests for the critical user journeys. Test levels, design techniques (boundary values, equivalence partitioning, state transitions), environments and entry/exit criteria are described in the [test plan](docs/test-plan.md). Every test case, its actual result and the requirement it covers are listed in [test cases](docs/test-cases.md).
+
 ```bash
 dotnet test EnterpriseTaskQaLab.slnx                    # all suites (builds everything first)
 dotnet test tests/TaskManagement.UnitTests              # unit tests
@@ -263,7 +275,10 @@ The [GitHub Actions workflow](.github/workflows/ci.yml) runs on every push and p
 - The SDK version comes from `global.json`, the workflow has read-only permissions, every job has a timeout, and a newer push cancels the run still in progress.
 - The UI tests run in a separate job so that a browser-environment problem is easy to tell apart from an application failure.
 
-The first successful run on GitHub was on 2026-10-24 ([run 40096522425](https://github.com/N-Pass/Enterprise-Task-QA-Lab/actions/runs/40096522425)): 37 unit, 35 integration and 6 UI tests passed.
+Evidence from GitHub Actions (2026-10-24):
+
+- [Run 40096749939](https://github.com/N-Pass/Enterprise-Task-QA-Lab/actions/runs/40096749939) passed, with 37 unit, 35 integration and 6 UI tests executed.
+- [Run 40097061030](https://github.com/N-Pass/Enterprise-Task-QA-Lab/actions/runs/40097061030) was a deliberate failure demonstration on a temporary branch: a bug that made new tasks start as "In Progress" was caught by 5 unit tests, the job failed, and the later steps and the UI job did not run. The branch was deleted afterwards.
 
 ## Project status
 
@@ -272,10 +287,10 @@ The first successful run on GitHub was on 2026-10-24 ([run 40096522425](https://
 | 1. Planning | Scope, architecture, risks, plan | Done |
 | 2. Environment | .NET 10 solution and project structure | Done |
 | 3. Backend | Domain, application, persistence, REST API | Done; endpoints verified manually |
-| 4. Frontend | Responsive vanilla JS interface | Done; workflows verified manually in Chrome (automated Selenium tests come in phase 5) |
-| 5. Testing | Integration and Selenium tests | Done; all 78 tests passing locally |
+| 4. Frontend | Responsive vanilla JS interface | Done |
+| 5. Testing | Unit, integration and Selenium tests | Done; 78 tests passing locally and in CI |
 | 6. CI/CD | GitHub Actions build and test pipeline | Done; all suites passing on GitHub Actions |
-| 7. Documentation | Requirements, test plan, test cases, traceability | Next |
+| 7. Documentation | Requirements, architecture, test plan, test cases, traceability | Done |
 
 ## Known limitations
 
@@ -289,6 +304,8 @@ The first successful run on GitHub was on 2026-10-24 ([run 40096522425](https://
 - The UI tests require Google Chrome and take about 20 seconds; they run against Chrome only.
 - The OpenAPI document is only exposed in the Development environment, and no interactive UI (such as Swagger UI) is included.
 - Migrations are applied at application startup, which is convenient for a demo; production systems usually apply them in the deployment pipeline instead.
+- Accessibility was checked for labels, focus handling and ARIA attributes, but not with a real screen reader or an automated accessibility scanner.
+- CI uses the `ubuntu-latest` runner image, which GitHub updates over time; an image change could affect the build without any code change.
 
 ## Future improvements
 
@@ -297,3 +314,6 @@ The first successful run on GitHub was on 2026-10-24 ([run 40096522425](https://
 - Concurrency tokens (ETag / row version) to detect conflicting edits.
 - Structured logging and health checks.
 - Containerization with Docker.
+- Automated accessibility checks (e.g. axe-core) and UI tests on more browsers.
+- A Selenium test for the task details dialog, which is currently verified manually.
+- Pin the CI runner image (e.g. `ubuntu-24.04`) for fully reproducible builds.
